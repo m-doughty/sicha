@@ -99,7 +99,14 @@ set_target_properties(sicha_obj PROPERTIES
 	POSITION_INDEPENDENT_CODE ON)
 target_include_directories(sicha_obj PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-target_compile_definitions(sicha_obj PRIVATE SICHA_BUILD)
+# dllexport annotations only make sense when actually building a DLL;
+# in static builds they leak into the archives and confuse MSVC test
+# links (__imp_ aliases, .exp side-products)
+if(BUILD_SHARED_LIBS)
+	target_compile_definitions(sicha_obj PRIVATE SICHA_BUILD)
+else()
+	target_compile_definitions(sicha_obj PRIVATE SICHA_STATIC)
+endif()
 if(SICHA_WITH_CURL)
 	target_compile_definitions(sicha_obj PRIVATE SICHA_WITH_CURL)
 	target_link_libraries(sicha_obj PRIVATE CURL::libcurl)
@@ -153,6 +160,11 @@ if(SICHA_BUILD_TESTS)
 		tests/support.c)
 	target_include_directories(sicha_test_support PUBLIC tests
 		${CMAKE_CURRENT_SOURCE_DIR}/include)
+	# support links no sicha target (each test picks real vs whitebox),
+	# so pin the header to static linkage: without this, MSVC compiles
+	# its sicha_cancel_* calls as dllimport (__imp_*) references that
+	# only resolve when a test happens to pull cancel.obj itself
+	target_compile_definitions(sicha_test_support PRIVATE SICHA_STATIC)
 	set_target_properties(sicha_test_support PROPERTIES
 		C_STANDARD 17 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
 	target_compile_options(sicha_test_support PRIVATE

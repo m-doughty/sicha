@@ -3,6 +3,7 @@
  * JSON bodies including escaping edge cases and extra-body merge
  * precedence. */
 
+#include <math.h>
 #include <stdlib.h>
 
 #include "sicha_internal.h"
@@ -639,7 +640,7 @@ static void check_request_rejections(void)
 		r.set_mask = SICHA_SET_TEMPERATURE;
 		r.temperature = -1.0;
 		expect_invalid("negative temperature", &d, &r);
-		r.temperature = 0.0 / 0.0; /* NaN through FFI */
+		r.temperature = nan(""); /* NaN through FFI */
 		expect_invalid("NaN temperature", &d, &r);
 	}
 	{
