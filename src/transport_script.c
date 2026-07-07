@@ -162,7 +162,7 @@ static sicha_transport_status script_perform(void *ud,
 	sicha_cancel *cancel, const sicha_clock *clock)
 {
 	script_state *s = ud;
-	sicha_script_response resp;
+	sicha_script_response resp = { 0 };
 	int have_resp = 0;
 	uint64_t start;
 	uint64_t dl_total;

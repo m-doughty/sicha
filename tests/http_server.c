@@ -31,6 +31,7 @@ static void t_net_fini(void)
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <strings.h> /* strncasecmp lives here under strict POSIX */
 #include <sys/socket.h>
 #include <unistd.h>
 typedef int t_sock;

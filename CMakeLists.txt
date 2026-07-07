@@ -22,6 +22,18 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Strict -std=c17 (C_EXTENSIONS OFF) makes glibc hide POSIX interfaces
+# (clock_gettime, CLOCK_*, nanosleep, pthreads extras) unless a
+# feature-test macro asks for them; _DEFAULT_SOURCE / _DARWIN_C_SOURCE
+# keep the glibc / macOS default namespaces intact alongside it.  On
+# Windows, hush MSVC's CRT deprecation layer (fopen, getenv, ...).
+if(WIN32)
+	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+else()
+	add_compile_definitions(_POSIX_C_SOURCE=200809L _DEFAULT_SOURCE
+		_DARWIN_C_SOURCE)
+endif()
+
 if(MSVC)
 	set(SICHA_C_WARNINGS /W4)
 	if(SICHA_WERROR)
