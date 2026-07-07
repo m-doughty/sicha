@@ -1,0 +1,90 @@
+# Nightly fuzzing campaign with a persistent per-target corpus.
+#
+# Progress lives in the corpus: every run resumes from the accumulated
+# coverage frontier instead of rediscovering it.  Three layers keep it:
+#   - fuzz/corpus/<target>/ (committed) — durable seed;
+#   - the Actions cache                 — warm layer between nightlies
+#                                         (evicts after ~7 idle days);
+#   - the corpus-growth commit          — only happens when coverage
+#                                         actually moved, and doubles
+#                                         as repo activity so GitHub's
+#                                         60-day inactivity rule does
+#                                         not disable this schedule.
+# Set COMMIT_CORPUS to "false" to keep CI from pushing.
+
+name: nightly-fuzz
+
+on:
+  schedule:
+    - cron: '43 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  COMMIT_CORPUS: "true"
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >
+          cmake -B build -DSICHA_BUILD_TESTS=OFF -DSICHA_WITH_CURL=OFF
+          -DSICHA_FUZZ=ON -DCMAKE_BUILD_TYPE=Debug
+        env:
+          CC: clang
+      - name: Build
+        run: cmake --build build
+      - name: Restore working corpus
+        uses: actions/cache/restore@v4
+        with:
+          path: work-corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+      - name: Fuzz each target for ~11 minutes (fork mode)
+        run: |
+          for t in sse request response client; do
+            mkdir -p work-corpus/$t
+            cp -n fuzz/corpus/$t/* work-corpus/$t/ 2>/dev/null || true
+            ./build/fuzz_$t -fork=3 -ignore_crashes=1 \
+              -max_total_time=660 -print_final_stats=1 \
+              -artifact_prefix=crash-$t- work-corpus/$t || true
+          done
+      - name: Merge new coverage into the committed corpus
+        run: |
+          for t in sse request response client; do
+            ./build/fuzz_$t -merge=1 fuzz/corpus/$t work-corpus/$t
+          done
+      - name: Save working corpus
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: work-corpus
+          key: fuzz-corpus-${{ github.run_id }}
+      - name: Commit corpus growth
+        if: env.COMMIT_CORPUS == 'true'
+        run: |
+          if [ -n "$(git status --porcelain fuzz/corpus)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email \
+              "github-actions[bot]@users.noreply.github.com"
+            git add fuzz/corpus
+            git commit -m "fuzz: nightly corpus update"
+            git push
+          fi
+      - name: Fail on crashes
+        run: |
+          if ls crash-* >/dev/null 2>&1; then
+            echo "fuzzer found crashes"
+            exit 1
+          fi
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-fuzz-crashes
+          path: crash-*
+          if-no-files-found: ignore

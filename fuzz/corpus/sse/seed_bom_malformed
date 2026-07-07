@@ -1,0 +1,6 @@
+﻿data: {"choices":[{"delta":{"reasoning":"thinking..."}}]}
+
+data: not json at all {{{
+
+data: {"choices":[{"delta":{"content":"ok"}}]}
+

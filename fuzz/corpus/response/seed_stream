@@ -1,0 +1,6 @@
+data: {"choices":[{"delta":{"content":"s"}}]}
+
+data: {"choices":[{"delta":{"reasoning":"r"}}]}
+
+data: [DONE]
+

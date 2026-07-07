@@ -1,0 +1,8 @@
+ line one
+data: li
+: comment
+event: message
+id: 42
+retry: `000
+data
+
