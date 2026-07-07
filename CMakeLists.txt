@@ -165,6 +165,12 @@ if(SICHA_BUILD_TESTS)
 	# its sicha_cancel_* calls as dllimport (__imp_*) references that
 	# only resolve when a test happens to pull cancel.obj itself
 	target_compile_definitions(sicha_test_support PRIVATE SICHA_STATIC)
+	if(NOT WIN32)
+		# tests use nan() from libm — separate on glibc (and clang
+		# won't constant-fold it away), implicit inside libSystem
+		# on macOS
+		target_link_libraries(sicha_test_support INTERFACE m)
+	endif()
 	set_target_properties(sicha_test_support PROPERTIES
 		C_STANDARD 17 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
 	target_compile_options(sicha_test_support PRIVATE
