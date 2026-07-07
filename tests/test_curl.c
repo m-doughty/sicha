@@ -361,10 +361,26 @@ static void check_connection_refused(void)
 			SICHA_E_EXHAUSTED);
 	}
 	T_CHECK(sicha_result_attempt_count(r) == 1);
-	T_CHECK(sicha_result_attempt(r, 0)->transport_status ==
-		SICHA_T_E_CONNECT);
-	T_CHECK(sicha_result_attempt(r, 0)->error_class ==
-		SICHA_CLASS_RETRY_SAME);
+	/* What the OS produces for a closed loopback port is platform
+	 * truth: POSIX stacks RST instantly (connection refused);
+	 * Windows' winsock connect-retry cycle can eat the whole
+	 * connect budget instead, surfacing as a connect timeout.  Both
+	 * are legal HERE — but each must carry ITS OWN classification
+	 * (refused = transient retry-same, connect timeout = advance);
+	 * the mapping itself is pinned exactly in test_classify. */
+	{
+		const sicha_attempt *a = sicha_result_attempt(r, 0);
+		int refused = a->transport_status == SICHA_T_E_CONNECT &&
+			a->error_class == SICHA_CLASS_RETRY_SAME;
+		int timed = a->transport_status ==
+				SICHA_T_E_TIMEOUT_CONNECT &&
+			a->error_class == SICHA_CLASS_ADVANCE;
+
+		fprintf(stderr, "refused-port probe observed: %s / %s\n",
+			sicha_transport_status_str(a->transport_status),
+			sicha_error_class_str(a->error_class));
+		T_CHECK(refused || timed);
+	}
 	sicha_result_destroy(r);
 	sicha_client_destroy(client);
 }
